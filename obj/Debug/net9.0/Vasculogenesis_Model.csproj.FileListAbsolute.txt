@@ -13,3 +13,9 @@ C:\Users\chase\Desktop\Programming\Vasculogenesis_Model\obj\Debug\net9.0\refint\
 C:\Users\chase\Desktop\Programming\Vasculogenesis_Model\obj\Debug\net9.0\Vasculogenesis_Model.pdb
 C:\Users\chase\Desktop\Programming\Vasculogenesis_Model\obj\Debug\net9.0\Vasculogenesis_Model.genruntimeconfig.cache
 C:\Users\chase\Desktop\Programming\Vasculogenesis_Model\obj\Debug\net9.0\ref\Vasculogenesis_Model.dll
+C:\Users\chase\Desktop\Programming\Vasculogenesis_Model\bin\Debug\net9.0\Microsoft.Win32.SystemEvents.dll
+C:\Users\chase\Desktop\Programming\Vasculogenesis_Model\bin\Debug\net9.0\System.Drawing.Common.dll
+C:\Users\chase\Desktop\Programming\Vasculogenesis_Model\bin\Debug\net9.0\System.Private.Windows.Core.dll
+C:\Users\chase\Desktop\Programming\Vasculogenesis_Model\bin\Debug\net9.0\runtimes\win\lib\net9.0\Microsoft.Win32.SystemEvents.dll
+C:\Users\chase\Desktop\Programming\Vasculogenesis_Model\obj\Debug\net9.0\Vasculogenesis_Model.csproj.AssemblyReference.cache
+C:\Users\chase\Desktop\Programming\Vasculogenesis_Model\obj\Debug\net9.0\Vasculog.7EAA92D8.Up2Date

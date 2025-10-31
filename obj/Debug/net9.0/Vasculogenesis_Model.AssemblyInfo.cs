@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("Vasculogenesis_Model")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+638c897326c0073d485ebac1971f553f606e0262")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+612ede13d4b412e70cdcf21cdef34af1355f18b4")]
 [assembly: System.Reflection.AssemblyProductAttribute("Vasculogenesis_Model")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Vasculogenesis_Model")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
