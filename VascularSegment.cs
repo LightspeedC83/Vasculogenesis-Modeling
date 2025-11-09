@@ -1,15 +1,21 @@
 using System;
-
-public class VascularSegment
+namespace VascularGenerator.DataStructures
 {
-    public float radius;
-    public float flow;
-    public float pressure;
-
-    public VascularSegment(float r, float q, float p)
+    public class VascularSegment
     {
-        radius = r;
-        flow = q;
-        pressure = p;
+        double[] startPoint;
+        double[] endPoint;
+        public float radius;
+        public float flow;
+        public float pressure;
+
+        public VascularSegment(double[] startPoint, double[] endPoint, float r, float q, float p)
+        {
+            this.startPoint = startPoint;
+            this.endPoint = endPoint;
+            radius = r;
+            flow = q;
+            pressure = p;
+        }
     }
 }

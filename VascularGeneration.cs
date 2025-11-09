@@ -1,7 +1,10 @@
 using System;
+using System.CodeDom.Compiler;
 using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Imaging;
+
+using VascularGenerator.DataStructures; //importing our custom tree datastructure
 
 public class VascularGeneration
 {
@@ -9,11 +12,19 @@ public class VascularGeneration
     //fields
     private bool[,] canvas;
 
-    private int[] inletLocation;
+    private double[] inletLocation;
     List<double[]> terminalLocations;
 
     //constructor
     public VascularGeneration(int perfusionRadius, int numberTerminalSegments)
+    {
+        terminalLocations = GenerateTerminalPoints(perfusionRadius, numberTerminalSegments); //terminal location is a list of random uniformly distributed points within the perfusion area
+        inletLocation = new double[] { -perfusionRadius, 0 }; //setting the inlet location to the the left corner of the circle
+        GenerateVascularTree(inletLocation, terminalLocations);
+    }
+
+    //uniformly generates a list of terminal points randomly inside the perfucsion area
+    private List<double[]> GenerateTerminalPoints(int perfusionRadius, int numberTerminalSegments)
     {
 
         //creating numberTerminalSegments number of points uniformly randomly distributed within the perfusion cirlce
@@ -25,7 +36,7 @@ public class VascularGeneration
 
         List<double[]> terminalLocations = new List<double[]>(); // initializing the list to store the terminal location points
         Random random = new Random();
-        int iteration = numberTerminalSegments; 
+        int iteration = numberTerminalSegments;
         while (iteration > 0) // will repeat numberTerminalSegment times
         {
             double randAngle = 2.0 * 3.14159265 * random.NextDouble();
@@ -55,7 +66,7 @@ public class VascularGeneration
                     }
                 }
                 if (rejected) { break; }
-            } 
+            }
 
             if (!rejected)
             {
@@ -64,22 +75,29 @@ public class VascularGeneration
                 terminalLocations.Add(cartesianRandPoint);
 
                 iteration--; //decreasing iterator
-            } 
-            
-            
+            }
+
+
+
+
         }
-        
+
         //representing the random terminal segment points in the canvas and exporting them
-        canvas = new bool[perfusionRadius * 2 +1, perfusionRadius * 2 +1];
+        canvas = new bool[perfusionRadius * 2 + 1, perfusionRadius * 2 + 1];
         foreach (double[] point in terminalLocations)
         {
-            canvas[perfusionRadius-(int)point[1], (int)point[0]+perfusionRadius] = true;
+            canvas[perfusionRadius - (int)point[1], (int)point[0] + perfusionRadius] = true;
         }
-        ExportImage(canvas, "terminal_segment_generation_test");
+        ExportImage(canvas, "terminal_point_generation_test");
 
+        return terminalLocations;
     }
-    
-    
+
+
+    private Tree<VascularSegment> GenerateVascularTree(double[] inletLocation, List<double[]> terminalLocations)
+    {
+        
+    }
 
 
 
@@ -101,13 +119,13 @@ public class VascularGeneration
                 }
             }
         }
-        outputImage.Save("outputs/"+name+".png", ImageFormat.Png);
+        outputImage.Save("outputs/" + name + ".png", ImageFormat.Png);
     }
 
     static void Main()
     {
         Console.WriteLine("---Starting Program---");
-        VascularGeneration testing = new VascularGeneration(100, 500);
+        VascularGeneration testing = new VascularGeneration(100, 1000);
     }
 
 }
