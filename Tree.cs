@@ -1,34 +1,42 @@
+using System;
 namespace VascularGenerator.DataStructures
 {
     public class Tree<T>
     {
         T value;
-        Tree<T> child;
+        List<Tree<T>> children;
         Tree<T> parent;
 
         public Tree(T value)
         {
             this.value = value;
+            child = null;
+            parent = null;
         }
 
         public void AddChild(Tree<T> child)
         {
-            this.child = child;
+            children.Add(child);
         }
 
-        public void AddParent(Tree<T> parent)
+        public void SetParent(Tree<T> parent)
         {
             this.parent = parent;
         }
 
-        public Tree<T> GetChild()
+        public List<Tree<T>> GetChildren()
         {
-            return child;
+            return children;
         }
 
         public Tree<T> GetParent()
         {
             return parent;
+        }
+
+        public T GetValue()
+        {
+            return value;
         }
     }
 }
