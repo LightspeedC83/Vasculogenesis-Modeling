@@ -3,8 +3,8 @@ namespace VascularGenerator.DataStructures
 {
     public class VascularSegment
     {
-        double[] startPoint;
-        double[] endPoint;
+        public double[] startPoint;
+        public double[] endPoint;
         public double segmentLength;
 
         public double radius;
@@ -33,7 +33,7 @@ namespace VascularGenerator.DataStructures
         }
 
         //constructor that will calculate the pressureIn, using poiseulle's law, given all the other relevant values
-        public VascularSegment(double[] startPoint, double[] endPoint, double q, double p2, double radius)
+        public VascularSegment(double q, double p2, double radius, double[] startPoint, double[] endPoint)
         {
             this.startPoint = startPoint;
             this.endPoint = endPoint;
@@ -47,10 +47,17 @@ namespace VascularGenerator.DataStructures
             double deltaPressure = 8 * flow * dynamicViscosity * segmentLengthMeters / (Math.PI * Math.Pow(radius, 4)); //change in pressure from inlet to outlet (p2-p1) -- we know p2<p1 and deltaPressure>0 (assuming flow is nonnegative) meaning we add to get to p1
             pressureIn = pressureOut + deltaPressure;
         }
-        
+
         public void CalculateLength()
         {
             segmentLength = Math.Sqrt(Math.Pow(startPoint[0] - endPoint[0], 2) + Math.Pow(startPoint[1] - endPoint[1], 2)); //segment lengh is in pixels
+        }
+        
+        public void RecalculatePressureIn()
+        {
+            double segmentLengthMeters = segmentLength * 100; //we're saying one pixel is one centimeter but for the radius calculation we need it in SI units (meters), so we convert 
+            double deltaPressure = 8 * flow * dynamicViscosity * segmentLengthMeters / (Math.PI * Math.Pow(radius, 4)); //change in pressure from inlet to outlet (p2-p1) -- we know p2<p1 and deltaPressure>0 (assuming flow is nonnegative) meaning we add to get to p1
+            pressureIn = pressureOut + deltaPressure;
         }
     }
 }

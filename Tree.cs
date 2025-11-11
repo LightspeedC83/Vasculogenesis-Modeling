@@ -10,7 +10,7 @@ namespace VascularGenerator.DataStructures
         public Tree(T value)
         {
             this.value = value;
-            child = null;
+            children = null;
             parent = null;
         }
 

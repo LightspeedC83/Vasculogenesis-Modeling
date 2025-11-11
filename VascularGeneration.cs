@@ -123,7 +123,7 @@ public class VascularGeneration
         VascularSegment firstVascularSegment = new VascularSegment(
             startPoint: inletLocation,
             endPoint: firstTerminalPoint,
-            p1: terminalPressure,
+            p1: inletPressure,
             p2: terminalPressure,
             q: terminalFlow
         );
@@ -138,11 +138,11 @@ public class VascularGeneration
             terminalLocations.RemoveAt(0);
 
             //traversing the Tree to find the best bifurcation point
-            List<Tree> segmentsToVisit = new List<Tree>(); // a queue
-            segmentsToVisit.Add(inletSegment);
-            double[] bestBifurcationPoint;
+            List<Tree<VascularSegment>> segmentsToVisit = [inletSegment]; // a queue
+
+            double[] bestBifurcationPoint = inletSegment.GetValue().startPoint;
             double bestDistance = 2 * perfusionRadius + 1; // starting out with one more than the maximum distance any point inside the perfusion area could be from another
-            Tree<VascularSegment> bestBifurcationPointNode;
+            Tree<VascularSegment> bestBifurcationPointNode = inletSegment;
 
             while (segmentsToVisit.Count > 0)
             {
@@ -152,7 +152,7 @@ public class VascularGeneration
                 //traversing the current segment
                 double[] p1 = currentSegment.GetValue().startPoint; //getting a unit vector pointing from the start point to the end point
                 double[] p2 = currentSegment.GetValue().endPoint;
-                double[] segmentVector = [(p2[0] - p1[0]) / currentSegment.GetValue.segmentLength, (p2[1] - p1[1]) / currentSegment.GetValue.segmentLength];
+                double[] segmentVector = [(p2[0] - p1[0]) / currentSegment.GetValue().segmentLength, (p2[1] - p1[1]) / currentSegment.GetValue().segmentLength];
                 for (int x = 1; x < currentSegment.GetValue().segmentLength; x++)
                 {
                     double[] bifurcationCandidate = [p1[0] + x * segmentVector[0], p2[1] + x * segmentVector[1]]; //getting the bifurcation candidate 
@@ -167,12 +167,12 @@ public class VascularGeneration
                 }
 
                 // adding the current segments children to the visiting queue
-                List<Tree<VascularSegment>> children = currentSegment.GetChildren();
-                if (children.Count > 0)
+                List<Tree<VascularSegment>> currentChildren = currentSegment.GetChildren();
+                if (currentChildren != null)
                 {
-                    for (int i = 0; i < children.Count; i++)
+                    for (int i = 0; i < currentChildren.Count; i++)
                     {
-                        segmentsToVisit.Add(children[i]);
+                        segmentsToVisit.Add(currentChildren[i]);
                     }
                 }
             }
@@ -188,7 +188,7 @@ public class VascularGeneration
                 p2: bestBifurcationPointNode.GetValue().pressureOut,
                 q: bestBifurcationPointNode.GetValue().flow
             );
-            Tree<VascularSegment> extraNode = Tree<VascularSegment>(extraSegment);
+            Tree<VascularSegment> extraNode = new Tree<VascularSegment>(extraSegment);
 
             //setting all the children of the best bifurcation node to be children of the new insert node
             List<Tree<VascularSegment>> children = bestBifurcationPointNode.GetChildren();
@@ -213,19 +213,51 @@ public class VascularGeneration
             newTerminalNode.SetParent(bestBifurcationPointNode);
 
             //changing the node that was bestBifurcationNode's endpoint to the bifurcaiton point and updating all it's values
-            upperNode = bestBifurcationPointNode.GetValue(); //the upper node of the rest of the tree will be the rescaled best BifurcationNode
-            upperSegment = upperNode.GetValue();
+            Tree<VascularSegment> upperNode = bestBifurcationPointNode; //the upper node of the rest of the tree will be the rescaled best BifurcationNode
+            VascularSegment upperSegment = upperNode.GetValue();
             upperSegment.endPoint = bestBifurcationPoint;
             upperSegment.CalculateLength(); //recalculating length
-            upperSegment.pressureOut = newTerminalSegment.PressureIn; // pressure out will be the same as the pressure into the new terminal segment and the extra segment
+            upperSegment.pressureOut = newTerminalSegment.pressureIn; // pressure out will be the same as the pressure into the new terminal segment and the extra segment
             upperSegment.radius = Math.Pow(Math.Pow(newTerminalSegment.radius, y) + Math.Pow(extraSegment.radius, y), 1.0 / y); //murray's law if the y value is 3
-            
-            
-            //Now we bubble up, recalculating radii, pressure, and flow for all the segments above the bifurcation segment
-            
-        }
-        
 
+
+            //Now we bubble up, recalculating radii, pressure, and flow for all the segments above the bifurcation segment
+            List<Tree<VascularSegment>> bubblingUpNodes = [upperNode]; //creating a queue initially populated with the upper node from our insert operation
+
+            while (bubblingUpNodes.Count > 0)
+            {
+                //getting the next node from the queue
+                Tree<VascularSegment> currentNode = bubblingUpNodes[0];
+                bubblingUpNodes.RemoveAt(0);
+
+                //getting the new raidus of the next node from the radii of it's children and the flow as the sum of the flow of the children.
+                double radiusCubeSum = 0.0;
+                double flowSum = 0.0;
+                double pressureSum = 0.0;
+                List<Tree<VascularSegment>> childSegments = currentNode.GetChildren();
+                for (int i = 0; i < childSegments.Count; i++)
+                {
+                    radiusCubeSum += Math.Pow(childSegments[i].GetValue().radius, y);
+                    flowSum += childSegments[i].GetValue().flow;
+                    pressureSum += childSegments[i].GetValue().pressureIn;
+                }
+
+                double newRadius = Math.Pow(radiusCubeSum, 1.0 / y); // the new radius according to r_parent^y = r_daughter^y + r_daughter^y
+                //updating the values
+                currentNode.GetValue().radius = newRadius;
+                currentNode.GetValue().flow = flowSum;
+                currentNode.GetValue().pressureOut = pressureSum;
+
+                //updating the pressure 
+                currentNode.GetValue().RecalculatePressureIn();
+
+                //adding the parent of the current node to the queue
+                bubblingUpNodes.Add(currentNode.GetParent());
+            }
+
+        }
+
+        return inletSegment;
     }
 
 
