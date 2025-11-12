@@ -1,5 +1,6 @@
 using System;
 using System.CodeDom.Compiler;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Imaging;
@@ -16,6 +17,7 @@ public class VascularGeneration
 
     //fields
     private bool[,] canvas;
+    private bool[,] terminalPointLocations;
 
     double y;
     int perfusionRadius;
@@ -23,7 +25,8 @@ public class VascularGeneration
     double terminalPressure;
     double inletFlow;
     double inletPressure;
-
+    int numberTerminalSegments;
+    int numTerminalPointsCreated;
     private double[] inletLocation;
     List<double[]> terminalLocations;
 
@@ -32,6 +35,9 @@ public class VascularGeneration
     //constructor
     public VascularGeneration(int perfusionRadius, int numberTerminalSegments, double terminalPressure, double inletPressure, double inletFlow, double y)
     {
+        numTerminalPointsCreated = 0;
+        terminalPointLocations = new bool[perfusionRadius * 2 +1, perfusionRadius * 2 +1];
+        this.numberTerminalSegments = numberTerminalSegments;
         this.y = y;
         this.perfusionRadius = perfusionRadius;
         this.terminalFlow = inletFlow/numberTerminalSegments; //inlet flow should be equally divided amongst the terminal segments 
@@ -40,87 +46,17 @@ public class VascularGeneration
         this.inletFlow = inletFlow; 
         inletLocation = new double[] { -perfusionRadius, 0 }; //setting the inlet location to the the left corner of the circle
 
-        terminalLocations = GenerateTerminalPoints(perfusionRadius, numberTerminalSegments); //terminal location is a list of random uniformly distributed points within the perfusion area
+        // terminalLocations = GenerateTerminalPoints(perfusionRadius, numberTerminalSegments); //terminal location is a list of random uniformly distributed points within the perfusion area
         
-        GenerateVascularTree(inletLocation, terminalLocations, terminalFlow, terminalPressure, inletFlow, inletPressure);
-    }
-
-    //uniformly generates a list of terminal points randomly inside the perfucsion area
-    private List<double[]> GenerateTerminalPoints(int perfusionRadius, int numberTerminalSegments)
-    {
-
-        //creating numberTerminalSegments number of points uniformly randomly distributed within the perfusion cirlce
-
-        // we will be using rejection sampling, let's now calculate the radius within which no other terminal point should be spawned from a previously placed terminal point
-        double exclusionRadius = perfusionRadius / Math.Sqrt(numberTerminalSegments); // comes from pi*(r_exclusion)^2 = pi*(r_perfusion)^2 / numberTerminalSegments
-        double exclusionRadiusSqared = Math.Pow(exclusionRadius, 2);
-        bool[,] terminalPoints = new bool[perfusionRadius * 2, perfusionRadius * 2];
-
-        List<double[]> terminalLocations = new List<double[]>(); // initializing the list to store the terminal location points
-        Random random = new Random();
-        int iteration = numberTerminalSegments;
-        while (iteration > 0) // will repeat numberTerminalSegment times
-        {
-            double randAngle = 2.0 * 3.14159265 * random.NextDouble();
-            double randRadius = perfusionRadius * Math.Sqrt(random.NextDouble()); //we use sqrt here because area scales with r^2, taking the sqrt of the random double [0,1] fixes this
-            double[] cartesianRandPoint = new double[] { randRadius * Math.Sin(randAngle), randRadius * Math.Cos(randAngle) }; //converting the raidus and angle into a rectangluar coordinate in (x,y) form
-
-            //checking to see if cartesianRandPoint should be rejected (ie. is it too close to any other points)
-            int[] rectArrLocation = new int[] { (int)(cartesianRandPoint[0] + perfusionRadius), (int)(perfusionRadius - cartesianRandPoint[1]) };
-            bool rejected = false;
-            for (int x = rectArrLocation[0] - (int)exclusionRadius; x < rectArrLocation[0] + (int)exclusionRadius; x++)
-            {
-                for (int y = rectArrLocation[1] - (int)exclusionRadius; y < rectArrLocation[1] + (int)exclusionRadius; y++)
-                {
-                    //checking point validity
-                    if (terminalPoints.GetLength(0) <= x || terminalPoints.GetLength(1) <= y || x < 0 || y < 0)
-                    {
-                        continue;
-                    }
-
-                    if (terminalPoints[y, x])
-                    {
-                        if (Math.Pow(x - rectArrLocation[0], 2) + Math.Pow(y - rectArrLocation[1], 2) < exclusionRadiusSqared) // if the point within the box of lenght 2*exclusionRadius is within the exclusion radius of the new point, the new point is invalid and thus rejected
-                        {
-                            rejected = true;
-                            break;
-                        }
-                    }
-                }
-                if (rejected) { break; }
-            }
-
-            if (!rejected)
-            {
-                terminalPoints[rectArrLocation[1], rectArrLocation[0]] = true; //representing the accpeted point in the exclusion map
-                //storing the terminal point
-                terminalLocations.Add(cartesianRandPoint);
-
-                iteration--; //decreasing iterator
-            }
-
-
-
-
-        }
-
-        //representing the random terminal segment points in the canvas and exporting them
-        canvas = new bool[perfusionRadius * 2 + 1, perfusionRadius * 2 + 1];
-        foreach (double[] point in terminalLocations)
-        {
-            canvas[perfusionRadius - (int)point[1], (int)point[0] + perfusionRadius] = true;
-        }
-        ExportImage(canvas, "terminal_point_generation_test");
-
-        return terminalLocations;
+        GenerateVascularTree(inletLocation, terminalFlow, terminalPressure, inletFlow, inletPressure);
     }
 
 
-    private Tree<VascularSegment> GenerateVascularTree(double[] inletLocation, List<double[]> terminalLocations, double terminalFlow, double terminalPressure, double inletFlow, double inletPressure)
+    private Tree<VascularSegment> GenerateVascularTree(double[] inletLocation, double terminalFlow, double terminalPressure, double inletFlow, double inletPressure)
     {
         //first we create a segment from the inlet location to some random point that carries one terminal flow from the inlet to the terminal location
-        double[] firstTerminalPoint = terminalLocations[0];
-        terminalLocations.RemoveAt(0);
+        double[] firstTerminalPoint =  NewTerminalPoint(null);
+
 
         VascularSegment firstVascularSegment = new VascularSegment(
             startPoint: inletLocation,
@@ -134,10 +70,9 @@ public class VascularGeneration
         Tree<VascularSegment> inletSegment = new Tree<VascularSegment>(firstVascularSegment); // the root of the tree
 
         // now we get a new point, traverse the tree to find the best bifurcation coordinate (ie. the closest point to the new point along all the lines connecting the new tree)
-        while (terminalLocations.Count > 0)
+        while (numTerminalPointsCreated < numberTerminalSegments)
         {
-            double[] nextTerminalPoint = terminalLocations[0]; //getting the next terminal location
-            terminalLocations.RemoveAt(0);
+            double[] nextTerminalPoint = NewTerminalPoint(inletSegment);
 
             //traversing the Tree to find the best bifurcation point
             List<Tree<VascularSegment>> segmentsToVisit = [inletSegment]; // a queue
@@ -230,7 +165,7 @@ public class VascularGeneration
             }
 
         }
-
+        
         return inletSegment;
     }
 
@@ -285,7 +220,7 @@ public class VascularGeneration
         double eps = 1e-6;
         double lowerBound = Math.Max(sBP2, sNewP2) + eps;
         double upperBound = sAP1 - eps;
-        Console.WriteLine(lowerBound +"  ,  "+ upperBound);
+        Console.WriteLine(lowerBound + "  ,  " + upperBound);
 
         // Use Math.NET Numerics Brent's method to find Pj (bifurcation junction pressure)
         double Pj = Brent.FindRoot(f, lowerBound, upperBound);
@@ -333,6 +268,194 @@ public class VascularGeneration
 
         return upperSegment;
     }
+
+
+    //returns one terminal point candidate, randomly from within the perfusion radius (uniform distribution)
+    private double[] NewTerminalPoint(Tree<VascularSegment> workingTree)
+    {
+
+        // we will be using rejection sampling, let's now calculate the radius within which no other terminal point should be spawned from a previously placed terminal point
+        double exclusionRadius = perfusionRadius / Math.Sqrt(numberTerminalSegments); // comes from pi*(r_exclusion)^2 = pi*(r_perfusion)^2 / numberTerminalSegments
+        double exclusionRadiusSqared = Math.Pow(exclusionRadius, 2);
+
+        //terminalPointLocations is a rectangular array we use to store all the terminal points that have been added
+
+
+        Random random = new Random();
+        bool pointFound = false;
+        while (!pointFound)
+        {
+            double randAngle = 2.0 * 3.14159265 * random.NextDouble();
+            double randRadius = perfusionRadius * Math.Sqrt(random.NextDouble()); //we use sqrt here because area scales with r^2, taking the sqrt of the random double [0,1] fixes this
+            double[] cartesianRandPoint = new double[] { randRadius * Math.Sin(randAngle), randRadius * Math.Cos(randAngle) }; //converting the raidus and angle into a rectangluar coordinate in (x,y) form
+
+            //checking to see if cartesianRandPoint should be rejected because its too close to any other terminal points (this is the part that makes it rejection sampling)
+            int[] rectArrLocation = new int[] { (int)(cartesianRandPoint[0] + perfusionRadius), (int)(perfusionRadius - cartesianRandPoint[1]) };
+            bool rejected = false;
+            for (int x = rectArrLocation[0] - (int)exclusionRadius; x < rectArrLocation[0] + (int)exclusionRadius; x++)
+            {
+                for (int y = rectArrLocation[1] - (int)exclusionRadius; y < rectArrLocation[1] + (int)exclusionRadius; y++)
+                {
+                    //checking point validity
+                    if (terminalPointLocations.GetLength(0) <= x || terminalPointLocations.GetLength(1) <= y || x < 0 || y < 0)
+                    {
+                        continue;
+                    }
+
+                    if (terminalPointLocations[y, x])
+                    {
+                        if (Math.Pow(x - rectArrLocation[0], 2) + Math.Pow(y - rectArrLocation[1], 2) < exclusionRadiusSqared) // if the point within the box of lenght 2*exclusionRadius is within the exclusion radius of the new point, the new point is invalid and thus rejected
+                        {
+                            rejected = true;
+                            break;
+                        }
+                    }
+                }
+
+            }
+
+            //If we reject becasue of the location in relation to other terminal points, we don't bother with the next check
+            if (rejected)
+            {
+                continue;
+            }
+
+            if (workingTree == null) //if it's the first terminal point, there is no working tree so we just return
+            {
+                pointFound = true;
+                numTerminalPointsCreated++;
+                terminalPointLocations[rectArrLocation[1], rectArrLocation[0]] = true; //representing the accpeted point in the exclusion map
+
+                return cartesianRandPoint;
+            }
+            //checking to see if the terminal point candidate (cartesianRandPoint) is within any of the segments of the workingTree (ie. the tree we're in the process of construction at the time of this function call )
+            List<Tree<VascularSegment>> toVisit = [workingTree];
+                                                               
+            while (toVisit.Count > 0)
+            {
+                //deque next node
+                Tree<VascularSegment> currentNode = toVisit[0];
+                toVisit.RemoveAt(0);
+
+                //checking if the candidate terminal point is inside this segment
+                double[] start = currentNode.GetValue().startPoint;
+                double[] end = currentNode.GetValue().endPoint;
+                double length = currentNode.GetValue().segmentLength;
+                double radius = currentNode.GetValue().radius;
+                double[] segmentVector = [(end[0] - start[0]) / length, (end[1] - start[1]) / length];
+
+                bool segmentClear = true;
+                for (double x = 0; x <= length; x += 0.1)
+                {
+                    double[] p = [start[0] + x * segmentVector[0], start[1] + x * segmentVector[1]];
+                    double distance = Math.Sqrt(Math.Pow(p[0] - cartesianRandPoint[0], 2) + Math.Pow(p[1] - cartesianRandPoint[1], 2));
+
+                    if (distance < radius)
+                    {
+                        segmentClear = false;
+                        rejected = true;
+                        break;
+                    }
+                }
+
+                if (rejected) { break; }
+
+                //enqueing the children of this node
+                List<Tree<VascularSegment>> children = currentNode.GetChildren();
+                if (children.Count > 0)
+                {
+                    for (int i = 0; i < children.Count; i++)
+                    {
+                        toVisit.Add(children[i]);
+                    }
+                }
+            }
+
+
+            if (!rejected)
+            {
+                pointFound = true;
+                numTerminalPointsCreated++;
+                terminalPointLocations[rectArrLocation[1], rectArrLocation[0]] = true; //representing the accpeted point in the exclusion map
+
+                return cartesianRandPoint;
+            }
+            else{ continue; }
+        }
+        return null;
+
+        
+    }
+
+
+
+    //uniformly generates a list of terminal points randomly inside the perfucsion area
+    private List<double[]> GenerateTerminalPoints(int perfusionRadius, int numberTerminalSegments)
+    {
+
+        //creating numberTerminalSegments number of points uniformly randomly distributed within the perfusion cirlce
+
+        // we will be using rejection sampling, let's now calculate the radius within which no other terminal point should be spawned from a previously placed terminal point
+        double exclusionRadius = perfusionRadius / Math.Sqrt(numberTerminalSegments); // comes from pi*(r_exclusion)^2 = pi*(r_perfusion)^2 / numberTerminalSegments
+        double exclusionRadiusSqared = Math.Pow(exclusionRadius, 2);
+        bool[,] terminalPoints = new bool[perfusionRadius * 2, perfusionRadius * 2];
+
+        List<double[]> terminalLocations = new List<double[]>(); // initializing the list to store the terminal location points
+        Random random = new Random();
+        int iteration = numberTerminalSegments;
+        while (iteration > 0) // will repeat numberTerminalSegment times
+        {
+            double randAngle = 2.0 * 3.14159265 * random.NextDouble();
+            double randRadius = perfusionRadius * Math.Sqrt(random.NextDouble()); //we use sqrt here because area scales with r^2, taking the sqrt of the random double [0,1] fixes this
+            double[] cartesianRandPoint = new double[] { randRadius * Math.Sin(randAngle), randRadius * Math.Cos(randAngle) }; //converting the raidus and angle into a rectangluar coordinate in (x,y) form
+
+            //checking to see if cartesianRandPoint should be rejected (ie. is it too close to any other points)
+            int[] rectArrLocation = new int[] { (int)(cartesianRandPoint[0] + perfusionRadius), (int)(perfusionRadius - cartesianRandPoint[1]) };
+            bool rejected = false;
+            for (int x = rectArrLocation[0] - (int)exclusionRadius; x < rectArrLocation[0] + (int)exclusionRadius; x++)
+            {
+                for (int y = rectArrLocation[1] - (int)exclusionRadius; y < rectArrLocation[1] + (int)exclusionRadius; y++)
+                {
+                    //checking point validity
+                    if (terminalPoints.GetLength(0) <= x || terminalPoints.GetLength(1) <= y || x < 0 || y < 0)
+                    {
+                        continue;
+                    }
+
+                    if (terminalPoints[y, x])
+                    {
+                        if (Math.Pow(x - rectArrLocation[0], 2) + Math.Pow(y - rectArrLocation[1], 2) < exclusionRadiusSqared) // if the point within the box of lenght 2*exclusionRadius is within the exclusion radius of the new point, the new point is invalid and thus rejected
+                        {
+                            rejected = true;
+                            break;
+                        }
+                    }
+                }
+                if (rejected) { break; }
+            }
+
+            if (!rejected)
+            {
+                terminalPoints[rectArrLocation[1], rectArrLocation[0]] = true; //representing the accpeted point in the exclusion map
+                //storing the terminal point
+                terminalLocations.Add(cartesianRandPoint);
+
+                iteration--; //decreasing iterator
+            }
+
+        }
+
+        //representing the random terminal segment points in the canvas and exporting them
+        canvas = new bool[perfusionRadius * 2 + 1, perfusionRadius * 2 + 1];
+        foreach (double[] point in terminalLocations)
+        {
+            canvas[perfusionRadius - (int)point[1], (int)point[0] + perfusionRadius] = true;
+        }
+        ExportImage(canvas, "terminal_point_generation_test");
+
+        return terminalLocations;
+    }
+
 
     //exports the canvas as an image
     public void ExportImage(bool[,] canvas, string name)
