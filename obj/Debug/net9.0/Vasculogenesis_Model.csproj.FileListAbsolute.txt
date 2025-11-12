@@ -19,3 +19,4 @@ C:\Users\chase\Desktop\Programming\Vasculogenesis_Model\bin\Debug\net9.0\System.
 C:\Users\chase\Desktop\Programming\Vasculogenesis_Model\bin\Debug\net9.0\runtimes\win\lib\net9.0\Microsoft.Win32.SystemEvents.dll
 C:\Users\chase\Desktop\Programming\Vasculogenesis_Model\obj\Debug\net9.0\Vasculogenesis_Model.csproj.AssemblyReference.cache
 C:\Users\chase\Desktop\Programming\Vasculogenesis_Model\obj\Debug\net9.0\Vasculog.7EAA92D8.Up2Date
+C:\Users\chase\Desktop\Programming\Vasculogenesis_Model\bin\Debug\net9.0\MathNet.Numerics.dll

@@ -14,7 +14,18 @@ namespace VascularGenerator.DataStructures
 
         private double dynamicViscosity = 0.0035;
 
+        //constructor that takes all the values and assigns them
+        public VascularSegment(double[] startPoint, double[] endPoint, double q, double p1, double p2, double radius)
+        {
+            this.startPoint = startPoint;
+            this.endPoint = endPoint;
+            segmentLength = Math.Sqrt(Math.Pow(startPoint[0] - endPoint[0], 2) + Math.Pow(startPoint[1] - endPoint[1], 2)); //segment lengh is in pixels
 
+            flow = q;
+            pressureIn = p1;
+            pressureOut = p2;
+            this.radius = radius;
+        }
 
         //constructor that will calculate the radius, using poiseulle's law, given all the other relevant values
         public VascularSegment(double[] startPoint, double[] endPoint, double q, double p1, double p2)
@@ -23,12 +34,12 @@ namespace VascularGenerator.DataStructures
             this.endPoint = endPoint;
             segmentLength = Math.Sqrt(Math.Pow(startPoint[0] - endPoint[0], 2) + Math.Pow(startPoint[1] - endPoint[1], 2)); //segment lengh is in pixels
 
-            double segmentLengthMeters = segmentLength * 100; //we're saying one pixel is one centimeter but for the radius calculation we need it in SI units (meters), so we convert 
+            double segmentLengthMeters = segmentLength / 100; //we're saying one pixel is one centimeter but for the radius calculation we need it in SI units (meters), so we convert (using 1 pixel = 1cm = 0.01m)
 
             flow = q;
             pressureIn = p1;
             pressureOut = p2;
-            radius = Math.Pow((8 * flow * dynamicViscosity * segmentLengthMeters / (Math.PI * (p2 - p1))), 1.0 / 4.0); //calculated using poiseulle's law with a dynamic viscosity of blood as 0.0035 pascal-seconds
+            radius = Math.Pow((8 * flow * dynamicViscosity * segmentLengthMeters / (Math.PI * Math.Abs(p1 - p2))), 1.0 / 4.0); //calculated using poiseulle's law with a dynamic viscosity of blood as 0.0035 pascal-seconds
 
         }
 
@@ -39,7 +50,7 @@ namespace VascularGenerator.DataStructures
             this.endPoint = endPoint;
             segmentLength = Math.Sqrt(Math.Pow(startPoint[0] - endPoint[0], 2) + Math.Pow(startPoint[1] - endPoint[1], 2)); //segment lengh is in pixels
 
-            double segmentLengthMeters = segmentLength * 100; //we're saying one pixel is one centimeter but for the radius calculation we need it in SI units (meters), so we convert 
+            double segmentLengthMeters = segmentLength / 100; //we're saying one pixel is one centimeter but for the radius calculation we need it in SI units (meters), so we convert (using 1 pixel = 1cm = 0.01m)
 
             flow = q;
             this.radius = radius;

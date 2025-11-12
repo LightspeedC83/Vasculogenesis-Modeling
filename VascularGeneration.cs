@@ -7,7 +7,9 @@ using System.Net;
 using System.Net.NetworkInformation;
 using System.Security.Cryptography.X509Certificates;
 using System.Transactions;
+using MathNet.Numerics.RootFinding; // for solving the junction pressure when we bifurcate
 using VascularGenerator.DataStructures; //importing our custom tree datastructure
+
 
 public class VascularGeneration
 {
@@ -153,9 +155,9 @@ public class VascularGeneration
                 double[] p1 = currentSegment.GetValue().startPoint; //getting a unit vector pointing from the start point to the end point
                 double[] p2 = currentSegment.GetValue().endPoint;
                 double[] segmentVector = [(p2[0] - p1[0]) / currentSegment.GetValue().segmentLength, (p2[1] - p1[1]) / currentSegment.GetValue().segmentLength];
-                for (int x = 1; x < currentSegment.GetValue().segmentLength; x++)
+                for (double x = 0.1; x < currentSegment.GetValue().segmentLength; x+=0.1)
                 {
-                    double[] bifurcationCandidate = [p1[0] + x * segmentVector[0], p2[1] + x * segmentVector[1]]; //getting the bifurcation candidate 
+                    double[] bifurcationCandidate = [p1[0] + x * segmentVector[0], p1[1] + x * segmentVector[1]]; //getting the bifurcation candidate 
                     double candidateDistance = Math.Sqrt(Math.Pow(nextTerminalPoint[0] - bifurcationCandidate[0], 2) + Math.Pow(nextTerminalPoint[1] - bifurcationCandidate[1], 2)); //calculating distance between bifurcation candidate and the target location
 
                     if (candidateDistance < bestDistance) // if the bifucation candidate is better than before
@@ -168,7 +170,7 @@ public class VascularGeneration
 
                 // adding the current segments children to the visiting queue
                 List<Tree<VascularSegment>> currentChildren = currentSegment.GetChildren();
-                if (currentChildren != null)
+                if (currentChildren.Count > 0)
                 {
                     for (int i = 0; i < currentChildren.Count; i++)
                     {
@@ -178,50 +180,18 @@ public class VascularGeneration
             }
 
             //now that we have the best bifurcation point for the current terminal segment, we will insert a new segment into the tree and rescale everything accordingly
-
-            //first we break the segment that contains the bifurcation node into two segments
-            double[] extraSegmentEndPoint = bestBifurcationPointNode.GetValue().endPoint;
-            VascularSegment extraSegment = new VascularSegment( // the first segment, that leads to the rest of the tree
-                startPoint: bestBifurcationPoint,
-                endPoint: extraSegmentEndPoint,
-                radius: bestBifurcationPointNode.GetValue().radius, //will have same radius as the segment that we split into two (this is the lower of those two in the tree)
-                p2: bestBifurcationPointNode.GetValue().pressureOut,
-                q: bestBifurcationPointNode.GetValue().flow
+            Tree<VascularSegment> bifurcatedNode = Bifurcate(
+                bifurcationNode: bestBifurcationPointNode,
+                terminalPoint: nextTerminalPoint,
+                bifurcationPoint: bestBifurcationPoint
             );
-            Tree<VascularSegment> extraNode = new Tree<VascularSegment>(extraSegment);
 
-            //setting all the children of the best bifurcation node to be children of the new insert node
-            List<Tree<VascularSegment>> children = bestBifurcationPointNode.GetChildren();
-            if (children != null)
-            {
-                for (int i = 0; i < children.Count; i++)
-                {
-                    children[i].SetParent(extraNode);
-                }
-            }
-
-
-            //creating a new terminal segment connecting to the next terminal point from the bifurcation point
-            VascularSegment newTerminalSegment = new VascularSegment(
-                startPoint: bestBifurcationPoint,
-                endPoint: nextTerminalPoint,
-                p1: extraSegment.pressureIn, //pressure into the next terminal segment will be the same as the pressure into the extra terminal segment, will be the same as the pressure out of the changed bestBifurcationSegmetn
-                p2: terminalPressure,
-                q: terminalFlow
-            );
-            Tree<VascularSegment> newTerminalNode = new Tree<VascularSegment>(newTerminalSegment);
-            newTerminalNode.SetParent(bestBifurcationPointNode);
-
-            //changing the node that was bestBifurcationNode's endpoint to the bifurcaiton point and updating all it's values
-            Tree<VascularSegment> upperNode = bestBifurcationPointNode; //the upper node of the rest of the tree will be the rescaled best BifurcationNode
-            VascularSegment upperSegment = upperNode.GetValue();
-            upperSegment.endPoint = bestBifurcationPoint;
-            upperSegment.CalculateLength(); //recalculating length
-            upperSegment.pressureOut = newTerminalSegment.pressureIn; // pressure out will be the same as the pressure into the new terminal segment and the extra segment
-            upperSegment.radius = Math.Pow(Math.Pow(newTerminalSegment.radius, y) + Math.Pow(extraSegment.radius, y), 1.0 / y); //murray's law if the y value is 3
-
+            //adding it into the tree by overwriting the node to be bifurcatd with it
+            bestBifurcationPointNode.SetValue(bifurcatedNode.GetValue());
+            bestBifurcationPointNode.SetChildren(bifurcatedNode.GetChildren());
 
             //Now we bubble up, recalculating radii, pressure, and flow for all the segments above the bifurcation segment
+            Tree<VascularSegment> upperNode = bestBifurcationPointNode;
             List<Tree<VascularSegment>> bubblingUpNodes = [upperNode]; //creating a queue initially populated with the upper node from our insert operation
 
             while (bubblingUpNodes.Count > 0)
@@ -252,7 +222,11 @@ public class VascularGeneration
                 currentNode.GetValue().RecalculatePressureIn();
 
                 //adding the parent of the current node to the queue
-                bubblingUpNodes.Add(currentNode.GetParent());
+                if (currentNode.GetParent() != null)
+                {
+                    bubblingUpNodes.Add(currentNode.GetParent());
+                }
+               
             }
 
         }
@@ -260,7 +234,105 @@ public class VascularGeneration
         return inletSegment;
     }
 
+    //this function takes in a node containing a segment S, it bifurcates S1 at the bifurcationPoint creating Sa, Sb, and Snew. Sa goes from the S's start point to the bifurcation point, Sb goes from the bifurcation point to S's endpoint, and Snew goes from the bifurcation point to the terminal point
+    public Tree<VascularSegment> Bifurcate(Tree<VascularSegment> bifurcationNode, double[] terminalPoint, double[] bifurcationPoint)
+    {
+        //WE have the following known values for Snew
+        double sNewFlow = terminalFlow;
+        double sNewP2 = terminalPressure;
+        double sNewLength = Math.Sqrt(Math.Pow(terminalPoint[0] - bifurcationPoint[0], 2) + Math.Pow(terminalPoint[1] - bifurcationPoint[1], 2)); //segment lengh is in pixels for Snew
 
+        //we have the following known values for Sb
+        double sBFlow = bifurcationNode.GetValue().flow;
+        double sBP2 = bifurcationNode.GetValue().pressureOut;
+        double sBLength = Math.Sqrt(Math.Pow(bifurcationNode.GetValue().endPoint[0] - bifurcationPoint[0], 2) + Math.Pow(bifurcationNode.GetValue().endPoint[1] - bifurcationPoint[1], 2)); //segment lengh is in pixels for Sb
+
+        //we have the following known values for Sa
+        double sAFlow = sNewFlow + sBFlow;
+        double sAP1 = bifurcationNode.GetValue().pressureIn;
+        double sALength = Math.Sqrt(Math.Pow(bifurcationNode.GetValue().startPoint[0] - bifurcationPoint[0], 2) + Math.Pow(bifurcationNode.GetValue().startPoint[1] - bifurcationPoint[1], 2)); //segment lengh is in pixels for Sb
+
+        // the radii of the three segments are related by: r_Sa^y = r_Snew^y + r_Sb^y
+        // the pressure at the junction between the three segments is the same: P_Snew_in = P_a_out = P_b_in = P_junction
+        // we can use poiseulle's law and the above contstraints to find Pjunction, and then the radii of all junctions
+
+        // segment lenght is in pixels so wee need to convert to meters (using 1 pixel = 1cm = 0.01m)
+        sALength = sALength * 0.01;
+        sBLength = sBLength * 0.01;
+        sNewLength = sNewLength * 0.01;
+
+        const double eta = 0.0035; // dynamic viscosity in Pa seconds
+        double K = 8.0 * eta / Math.PI;
+
+        // Function f(Pj) = r_a^y - r_b^y - r_new^y, where each r_i is a function of Pjunction by Poiseuille's law
+        Func<double, double> f = Pj =>
+        {
+            // Avoid division by zero or negative pressure differences
+            if (Pj >= sAP1 || Pj <= Math.Max(sBP2, sNewP2)) { return double.NaN; }
+
+            double ra4 = K * sALength * sAFlow / (sAP1 - Pj);
+            double rb4 = K * sBLength * sBFlow / (Pj - sBP2);
+            double rnew4 = K * sNewLength * sNewFlow / (Pj - sNewP2);
+
+            double ra_y = Math.Pow(ra4, y / 4.0);
+            double rb_y = Math.Pow(rb4, y / 4.0);
+            double rnew_y = Math.Pow(rnew4, y / 4.0);
+
+            return ra_y - (rb_y + rnew_y);
+        };
+
+        // Bracket Pjunction between (max(sBP2, sNewP2) + ε) and (sAP1 - ε)
+        double eps = 1e-6;
+        double lowerBound = Math.Max(sBP2, sNewP2) + eps;
+        double upperBound = sAP1 - eps;
+        Console.WriteLine(lowerBound +"  ,  "+ upperBound);
+
+        // Use Math.NET Numerics Brent's method to find Pj (bifurcation junction pressure)
+        double Pj = Brent.FindRoot(f, lowerBound, upperBound);
+
+        // Compute the radii from Pjunction
+        double rA = Math.Pow(K * sALength * sAFlow / (sAP1 - Pj), 0.25);
+        double rB = Math.Pow(K * sBLength * sBFlow / (Pj - sBP2), 0.25);
+        double rNew = Math.Pow(K * sNewLength * sNewFlow / (Pj - sNewP2), 0.25);
+
+        // now that we have all the values we need, we can create the segment objects, and structure the tree
+        VascularSegment sNew = new VascularSegment(
+            startPoint: bifurcationPoint,
+            endPoint: terminalPoint,
+            p1: Pj,
+            p2: terminalPressure,
+            q: terminalFlow,
+            radius: rNew
+        );
+
+        VascularSegment sA = new VascularSegment(
+            startPoint: bifurcationNode.GetValue().startPoint,
+            endPoint: bifurcationPoint,
+            p1: sAP1,
+            p2: Pj,
+            q: sAFlow,
+            radius: rA
+        );
+
+        VascularSegment sB = new VascularSegment(
+            startPoint: bifurcationPoint,
+            endPoint: bifurcationNode.GetValue().endPoint,
+            p1: Pj,
+            p2: sBP2,
+            q: sBFlow,
+            radius: rB
+        );
+
+        //creating the tree structre of the bifurcation area and returning the root (sA)
+        Tree<VascularSegment> upperSegment = new Tree<VascularSegment>(sA);
+        Tree<VascularSegment> lowerSegment = new Tree<VascularSegment>(sB);
+        Tree<VascularSegment> newSegment = new Tree<VascularSegment>(sNew);
+        lowerSegment.SetChildren(bifurcationNode.GetChildren()); // the children of the bifurcation node are now children of the lower segment
+        upperSegment.AddChild(lowerSegment);
+        upperSegment.AddChild(newSegment);
+
+        return upperSegment;
+    }
 
     //exports the canvas as an image
     public void ExportImage(bool[,] canvas, string name)

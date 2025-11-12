@@ -2,6 +2,19 @@
   "version": 3,
   "targets": {
     "net9.0": {
+      "MathNet.Numerics/5.0.0": {
+        "type": "package",
+        "compile": {
+          "lib/net6.0/MathNet.Numerics.dll": {
+            "related": ".xml"
+          }
+        },
+        "runtime": {
+          "lib/net6.0/MathNet.Numerics.dll": {
+            "related": ".xml"
+          }
+        }
+      },
       "Microsoft.Win32.SystemEvents/9.0.10": {
         "type": "package",
         "compile": {
@@ -52,6 +65,28 @@
     }
   },
   "libraries": {
+    "MathNet.Numerics/5.0.0": {
+      "sha512": "pg1W2VwaEQMAiTpGK840hZgzavnqjlCMTVSbtVCXVyT+7AX4mc1o89SPv4TBlAjhgCOo9c1Y+jZ5m3ti2YgGgA==",
+      "type": "package",
+      "path": "mathnet.numerics/5.0.0",
+      "files": [
+        ".nupkg.metadata",
+        ".signature.p7s",
+        "icon.png",
+        "lib/net461/MathNet.Numerics.dll",
+        "lib/net461/MathNet.Numerics.xml",
+        "lib/net48/MathNet.Numerics.dll",
+        "lib/net48/MathNet.Numerics.xml",
+        "lib/net5.0/MathNet.Numerics.dll",
+        "lib/net5.0/MathNet.Numerics.xml",
+        "lib/net6.0/MathNet.Numerics.dll",
+        "lib/net6.0/MathNet.Numerics.xml",
+        "lib/netstandard2.0/MathNet.Numerics.dll",
+        "lib/netstandard2.0/MathNet.Numerics.xml",
+        "mathnet.numerics.5.0.0.nupkg.sha512",
+        "mathnet.numerics.nuspec"
+      ]
+    },
     "Microsoft.Win32.SystemEvents/9.0.10": {
       "sha512": "P1CEtsxar/RhfoH3r1vc9ra28LLVYphpcFBxyRIEMM/jP3qh4j9TU4sWH2RUhMZX+GbFxZ+zz1oSP2n9MwjshA==",
       "type": "package",
@@ -129,6 +164,7 @@
   },
   "projectFileDependencyGroups": {
     "net9.0": [
+      "MathNet.Numerics >= 5.0.0",
       "System.Drawing.Common >= 9.0.10"
     ]
   },
@@ -175,6 +211,10 @@
       "net9.0": {
         "targetAlias": "net9.0",
         "dependencies": {
+          "MathNet.Numerics": {
+            "target": "Package",
+            "version": "[5.0.0, )"
+          },
           "System.Drawing.Common": {
             "target": "Package",
             "version": "[9.0.10, )"
