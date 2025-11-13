@@ -95,7 +95,7 @@ public class VascularGeneration
                 double[] p1 = currentSegment.GetValue().startPoint; //getting a unit vector pointing from the start point to the end point
                 double[] p2 = currentSegment.GetValue().endPoint;
                 double[] segmentVector = [(p2[0] - p1[0]) / currentSegment.GetValue().segmentLength, (p2[1] - p1[1]) / currentSegment.GetValue().segmentLength];
-                for (double x = 0.1; x < currentSegment.GetValue().segmentLength; x+=0.1)
+                for (double x = 0.1; x < currentSegment.GetValue().segmentLength-0.1; x+=0.1)
                 {
                     double[] bifurcationCandidate = [p1[0] + x * segmentVector[0], p1[1] + x * segmentVector[1]]; //getting the bifurcation candidate 
                     double candidateDistance = Math.Sqrt(Math.Pow(nextTerminalPoint[0] - bifurcationCandidate[0], 2) + Math.Pow(nextTerminalPoint[1] - bifurcationCandidate[1], 2)); //calculating distance between bifurcation candidate and the target location
@@ -185,6 +185,12 @@ public class VascularGeneration
         //we have the following known values for Sb
         double sBFlow = bifurcationNode.GetValue().flow;
         double sBP2 = bifurcationNode.GetValue().pressureOut;
+        if (bifurcationNode.GetChildren().Count == 0)
+        {
+            sBFlow = terminalFlow;
+            sBP2 = terminalPressure;
+        }
+
         double sBLength = Math.Sqrt(Math.Pow(bifurcationNode.GetValue().endPoint[0] - bifurcationPoint[0], 2) + Math.Pow(bifurcationNode.GetValue().endPoint[1] - bifurcationPoint[1], 2)); //segment lengh is in pixels for Sb
 
         //we have the following known values for Sa
@@ -225,7 +231,6 @@ public class VascularGeneration
         double eps = 1e-6;
         double lowerBound = Math.Max(sBP2, sNewP2) + eps;
         double upperBound = sAP1 - eps;
-        Console.WriteLine(lowerBound + "  ,  " + upperBound);
 
         // Use Math.NET Numerics Brent's method to find Pj (bifurcation junction pressure)
         double Pj = Brent.FindRoot(f, lowerBound, upperBound);
@@ -643,13 +648,21 @@ public class VascularGeneration
     {
         Console.WriteLine("---Starting Program---");
 
+        // Constants for realistic microvascular scale
+        double perfusionRadius = 100;                // in pixels (1 px = 1 cm → 1 m radius domain)
+        int numberTerminalSegments = 1000;
+        double terminalPressure = 7999.342104;       // 60 mmHg in Pascals
+        double inletPressure = 13332.23684;           // 100 mmHg in Pascals
+        double inletFlow = 8.333e-9;                  // 500 μL/min in m³/s (approximate)
+        double y = 3.0;                               // Murray's law exponent
+
         VascularGeneration testing = new VascularGeneration(
-            perfusionRadius: 100, //100 pixel radius
-            numberTerminalSegments: 1000,
-            terminalPressure: 7999.342104, // 60 mmHg in pascals
-            inletPressure: 13332.23684, // 100 mmHg in pascals
-            inletFlow: 0.83333, // 500 mm/min in m^3/second
-            y: 3 //exponent for the r_parent^y = r_daughter^y + r_daughter^y relationship governing radii --> we're using a y value of 3, making the governing equation murray's law
+            perfusionRadius: (int)perfusionRadius,
+            numberTerminalSegments: numberTerminalSegments,
+            terminalPressure: terminalPressure,
+            inletPressure: inletPressure,
+            inletFlow: inletFlow,
+            y: y
         );
         
         Console.WriteLine("---Program Complete---");
