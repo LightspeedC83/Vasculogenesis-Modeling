@@ -1,4 +1,5 @@
 using System;
+using System.ComponentModel.DataAnnotations;
 namespace VascularGenerator.DataStructures
 {
     public class Tree<T>
@@ -56,83 +57,26 @@ namespace VascularGenerator.DataStructures
         {
             return value;
         }
+
+        public bool IsLeaf()
+        {
+            return children.Count == 0;
+        }
+        public override string ToString()
+        {
+            string output = "Tree Node:\n"+ value.ToString();
+            if (children.Count == 0)
+            {
+                return value.ToString() + "\n--noChildren--";
+            }
+            else
+            {
+                foreach (Tree<T> c in children)
+                {
+                    output += "\n\tChild:\n" + c.ToString();
+                }
+            }
+            return output;
+        }
     }
 }
-
-
-// public class Tree<T>
-//     {
-//         T value;
-//         List<Tree<T>> children;
-//         Tree<T> parent;
-
-//         public Tree(T value)
-//         {
-//             this.value = value;
-//             children = new List<Tree<T>>();
-//             parent = null;
-//         }
-
-//         public void AddChild(Tree<T> child)
-//         {   
-//             if (child == null) return;
-            
-//             if (child.parent != null)
-//             {
-//                 child.parent.RemoveChild(child);
-//             }
-
-//             children.Add(child);
-//             child.parent = this;
-//         }
-
-//         public bool RemoveChild(Tree<T> child)
-//         {
-//             if (child == null) return false;
-//             if (children.Remove(child))
-//             {
-//                 if (child.parent == this)
-//                     child.parent = null;
-//                 return true;
-//             }
-//             return false;
-//         }
-
-//         public void SetChildren(List<Tree<T>> newChildren)
-//         {
-//             // Detach current children
-//             foreach (var c in new List<Tree<T>>(children))
-//                 RemoveChild(c);
-//             if (newChildren != null)
-//             {
-//                 foreach (var c in newChildren)
-//                     AddChild(c);
-//             }
-//         }
-
-//         public void SetParent(Tree<T> parent)
-//         {
-//             // Simple setter without side effect
-//             this.parent = parent;
-//         }
-
-//         public void SetValue(T value)
-//         {
-//             this.value = value;
-//         }
-
-//         public List<Tree<T>> GetChildren()
-//         {
-//             return children;
-//         }
-
-//         public Tree<T> GetParent()
-//         {
-//             return parent;
-//         }
-
-//         public T GetValue()
-//         {
-//             return value;
-//         }
-//     }

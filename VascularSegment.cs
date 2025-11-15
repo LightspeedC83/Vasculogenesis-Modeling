@@ -70,10 +70,21 @@ namespace VascularGenerator.DataStructures
             double deltaPressure = 8 * flow * dynamicViscosity * segmentLengthMeters / (Math.PI * Math.Pow(radius, 4)); //change in pressure from inlet to outlet (p2-p1) -- we know p2<p1 and deltaPressure>0 (assuming flow is nonnegative) meaning we add to get to p1
             pressureIn = pressureOut + deltaPressure;
         }
-        
+
         public double CalculateVolume()
         {
             return segmentLength * Math.PI * Math.Pow(radius, 2);
+        }
+
+        public double GetRadius()
+        {
+            return radius * 10000;
+        }
+        
+
+        public override string ToString()
+        {
+            return "Vascular Segment: \n\tstart:" + startPoint + "\n\tend:" + endPoint +"\n\tlength:" + segmentLength + "\n\tpressureIn:" + pressureIn + "\n\tpressureOut:" + pressureOut + "\n\tflow:" + flow + "\n\tradius:" + radius;
         }
     }
 }

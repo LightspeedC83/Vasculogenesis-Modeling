@@ -45,11 +45,12 @@ public class VascularGeneration
         this.terminalPressure = terminalPressure; 
         this.inletPressure = inletPressure; 
         this.inletFlow = inletFlow; 
-        inletLocation = new double[] { -perfusionRadius, 0 }; //setting the inlet location to the the left corner of the circle
+        inletLocation = new double[] { 0, 0 }; //setting the inlet location to the the left corner of the circle
 
         // terminalLocations = GenerateTerminalPoints(perfusionRadius, numberTerminalSegments); //terminal location is a list of random uniformly distributed points within the perfusion area
-        
-        GenerateVascularTree(inletLocation, terminalFlow, terminalPressure, inletFlow, inletPressure);
+
+        Tree<VascularSegment> tree = GenerateVascularTree(inletLocation, terminalFlow, terminalPressure, inletFlow, inletPressure);
+        Console.WriteLine(tree.ToString());
     }
 
 
@@ -76,7 +77,7 @@ public class VascularGeneration
             //debugging adn progress stuff
             ExportImage(VisualizeTree(inletSegment), "test_iteration_" + numTerminalPointsCreated);
             double[] nextTerminalPoint = NewTerminalPoint(inletSegment);
-            Console.WriteLine(inletSegment.GetValue().radius);
+            Console.WriteLine(inletSegment.GetValue().GetRadius());
 
             //traversing the Tree to find the best bifurcation point minimizing distance 
             //TODO: modify to minimize volume
@@ -483,7 +484,7 @@ public class VascularGeneration
             double uy = (end[1] - start[1]) / len;
 
             // Convert radius from meters to pixels (1 px = 0.01 m)
-            double r_px = seg.radius / 0.01;
+            double r_px = seg.GetRadius();
             if (r_px <= 0) r_px = 0.5; // ensure visibility
             double r2 = r_px * r_px;
             int rPix = (int)Math.Ceiling(r_px);
@@ -650,7 +651,7 @@ public class VascularGeneration
 
         // Constants for realistic microvascular scale
         double perfusionRadius = 100;                // in pixels (1 px = 1 cm → 1 m radius domain)
-        int numberTerminalSegments = 1000;
+        int numberTerminalSegments = 50;
         double terminalPressure = 7999.342104;       // 60 mmHg in Pascals
         double inletPressure = 13332.23684;           // 100 mmHg in Pascals
         double inletFlow = 8.333e-9;                  // 500 μL/min in m³/s (approximate)
