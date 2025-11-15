@@ -1,7 +1,7 @@
 using System;
 namespace VascularGenerator.DataStructures
 {
-    public class VascularSegment
+    public class VascularSegment : IsCopyable<VascularSegment>
     {
         public double[] startPoint;
         public double[] endPoint;
@@ -80,8 +80,73 @@ namespace VascularGenerator.DataStructures
         {
             return radius * 10000;
         }
+
+        public bool ContainsPoint(double[] point)
+        {
+            int dim = startPoint.Length;
+
+            if (dim != endPoint.Length || dim != point.Length)
+                throw new ArgumentException("All input points must have the same dimension.");
+
+            // Compute axis vector and its squared length
+            double axisSquaredLength = 0;
+            double[] axis = new double[dim];
+            for (int i = 0; i < dim; i++)
+            {
+                axis[i] = endPoint[i] - startPoint[i];
+                axisSquaredLength += axis[i] * axis[i];
+            }
+
+            if (axisSquaredLength == 0)
+                return false; // Degenerate cylinder
+
+            // Vector from start to point
+            double[] startToPoint = new double[dim];
+            for (int i = 0; i < dim; i++)
+                startToPoint[i] = point[i] - startPoint[i];
+
+            // Project startToPoint onto axis to get parameter t
+            double t = 0;
+            for (int i = 0; i < dim; i++)
+                t += startToPoint[i] * axis[i];
+            
+            t /= axisSquaredLength;
+
+            // Clamp t between 0 and 1 to stay within the finite cylinder
+            if (t < 0 || t > 1)
+                return false;
+
+            // Calculate closest point on axis
+            double[] closestPoint = new double[dim];
+            for (int i = 0; i < dim; i++)
+                closestPoint[i] = startPoint[i] + t * axis[i];
+
+            // Calculate squared distance from point to closest point
+            double distSquared = 0;
+            for (int i = 0; i < dim; i++)
+            {
+                double diff = point[i] - closestPoint[i];
+                distSquared += diff * diff;
+            }
+
+            return distSquared <= radius * radius;
+        }
         
 
+        //returns an exact copy of this vascular segment object
+        public VascularSegment CreateCopy()
+        {
+            VascularSegment copy = new VascularSegment(
+                startPoint: this.startPoint,
+                endPoint: this.endPoint,
+                q: this.flow,
+                p1: this.pressureIn,
+                p2: this.pressureOut,
+                radius: this.radius
+            );
+            return copy;
+        }
+        
         public override string ToString()
         {
             return "Vascular Segment: \n\tstart:" + startPoint + "\n\tend:" + endPoint +"\n\tlength:" + segmentLength + "\n\tpressureIn:" + pressureIn + "\n\tpressureOut:" + pressureOut + "\n\tflow:" + flow + "\n\tradius:" + radius;
