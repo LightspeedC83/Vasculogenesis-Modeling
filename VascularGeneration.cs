@@ -49,16 +49,17 @@ public class VascularGeneration
 
         // terminalLocations = GenerateTerminalPoints(perfusionRadius, numberTerminalSegments); //terminal location is a list of random uniformly distributed points within the perfusion area
 
-        Tree<VascularSegment> tree = GenerateVascularTree(inletLocation, terminalFlow, terminalPressure, inletFlow, inletPressure);
+        Tree<VascularSegment> tree = GenerateVascularTree(inletLocation, terminalPressure, inletFlow, inletPressure);
         Console.WriteLine(tree.ToString());
     }
 
 
-    private Tree<VascularSegment> GenerateVascularTree(double[] inletLocation, double terminalFlow, double terminalPressure, double inletFlow, double inletPressure)
+    private Tree<VascularSegment> GenerateVascularTree(double[] inletLocation, double terminalPressure, double inletFlow, double inletPressure)
     {
         //first we create a segment from the inlet location to some random point that carries one terminal flow from the inlet to the terminal location
         double[] firstTerminalPoint = NewTerminalPoint(null);
 
+        // terminalFlow = inletFlow/numTerminalPointsCreated;
 
         VascularSegment firstVascularSegment = new VascularSegment(
             startPoint: inletLocation,
@@ -79,9 +80,10 @@ public class VascularGeneration
             Console.WriteLine(inletSegment.GetValue().GetRadius());
 
             double[] nextTerminalPoint = NewTerminalPoint(inletSegment);
+            // terminalFlow = inletFlow/numTerminalPointsCreated;
 
             //getting the best bifurcation point and the node associated with it
-            double[] bestBifurcationPoint = GetBifurcationPointByDistance(inletSegment, nextTerminalPoint);
+            double[] bestBifurcationPoint = GetBifurcationPointByVolume(inletSegment, nextTerminalPoint);
             Tree<VascularSegment> bestBifurcationPointNode = GetBifurcationNode(inletSegment, bestBifurcationPoint);
 
             //now that we have the best bifurcation point for the current terminal segment, we will insert a new segment into the tree and rescale everything accordingly
@@ -115,10 +117,10 @@ public class VascularGeneration
         
         //now we to a test insertion at each possible point and calculate the resultant volume
 
-        List<Tree<VascularSegment>> segmentsToVisit = [rootCopy]; // a queue
+        List<Tree<VascularSegment>> segmentsToVisit = [root]; // a queue
 
         while (segmentsToVisit.Count > 0)
-        {
+        {   
             Tree<VascularSegment> currentSegment = segmentsToVisit[0];
             segmentsToVisit.RemoveAt(0);
 
@@ -128,49 +130,28 @@ public class VascularGeneration
             double[] segmentVector = [(p2[0] - p1[0]) / currentSegment.GetValue().segmentLength, (p2[1] - p1[1]) / currentSegment.GetValue().segmentLength];
             for (double x = 0.1; x < currentSegment.GetValue().segmentLength - 0.1; x += 0.1)
             {
-                //we have to first reset the values of root copy to those of the origional tree. Copied nodes will still have the same ID as their original
-                List<Tree<VascularSegment>> copiesToVisit = [rootCopy];
-                while (copiesToVisit.Count > 0)
-                {
-                    Tree<VascularSegment> currentCopy = copiesToVisit[0];
-                    copiesToVisit.RemoveAt(0);
-                    Console.WriteLine(currentCopy);
-                    int currentID = currentCopy.GetID(); 
-                    //find the segment in the original tree with the same ID
-                    List<Tree<VascularSegment>> originalsToVisit = [rootCopy];
-                    while (originalsToVisit.Count > 0)
-                    {
-                        Tree<VascularSegment> currentOriginal = originalsToVisit[0];
-                        originalsToVisit.RemoveAt(0);
-                        if (currentOriginal.GetID() == currentID)
-                        {
-                            currentCopy.SetValue(currentOriginal.GetValue().CreateCopy());
-                            break;
-                        }
-                        if (currentOriginal.GetChildren().Count == 0) { continue; }
-                        foreach (Tree<VascularSegment> c in currentOriginal.GetChildren()) { originalsToVisit.Add(c); }
-
-                    }
-                    if (currentCopy.GetChildren().Count == 0) { continue; }
-                    foreach (Tree<VascularSegment> c in currentCopy.GetChildren()) { copiesToVisit.Add(c); }
-                }
                 
+                //overwrite the copy with a new clean copy
+                rootCopy = root.CreateCopy();
 
                 double[] bifurcationCandidate = [p1[0] + x * segmentVector[0], p1[1] + x * segmentVector[1]]; //getting the bifurcation candidate 
+                Tree<VascularSegment> testBifurcationNode = GetBifurcationNode(rootCopy, bifurcationCandidate); //getting the associated node in the copy tree
+
                 //now that we have the candidate bifurcation point for the current segment, we will insert a new segment into the tree copy and rescale everything accordingly
                 Tree<VascularSegment> bifurcatedNode = Bifurcate(
-                    bifurcationNode: currentSegment,
+                    bifurcationNode: testBifurcationNode,
                     terminalPoint: newPoint,
                     bifurcationPoint: bifurcationCandidate
                 );
 
                 //adding it into the tree by overwriting the node to be bifurcatd with it
-                currentSegment.SetValue(bifurcatedNode.GetValue());
-                currentSegment.SetChildren(bifurcatedNode.GetChildren());
+                testBifurcationNode.SetValue(bifurcatedNode.GetValue());
+                testBifurcationNode.SetChildren(bifurcatedNode.GetChildren());
 
                 //Now we bubble up, recalculating radii, pressure, and flow for all the segments above the bifurcation segment
-                Tree<VascularSegment> upperNode = currentSegment;
-                BubbleUpChanges(upperNode);
+                BubbleUpChanges(testBifurcationNode);
+                
+
 
                 //now we calculate the volume of the copied tree.
                 double volume = 0.0;
@@ -414,6 +395,7 @@ public class VascularGeneration
     }
 
 
+    
     //returns one terminal point candidate, randomly from within the perfusion radius (uniform distribution)
     private double[] NewTerminalPoint(Tree<VascularSegment> workingTree)
     {
@@ -530,68 +512,6 @@ public class VascularGeneration
 
 
     }
-
-    // private bool[,] VisualizeTree(Tree<VascularSegment> tree)
-    // {
-    //     bool[,] output = new bool[perfusionRadius * 2, perfusionRadius * 2];
-
-    //     List<Tree<VascularSegment>> toVisit = [tree];
-
-    //     while (toVisit.Count > 0)
-    //     {
-    //         //deque next node
-    //         Tree<VascularSegment> currentNode = toVisit[0];
-    //         toVisit.RemoveAt(0);
-
-    //         //checking if the candidate terminal point is inside this segment
-    //         double[] start = currentNode.GetValue().startPoint;
-    //         double[] end = currentNode.GetValue().endPoint;
-    //         double length = currentNode.GetValue().segmentLength;
-    //         double radius = currentNode.GetValue().radius;
-    //         double[] segmentVector = [(end[0] - start[0]) / length, (end[1] - start[1]) / length];
-
-    //         for (double k = 0; k <= length; k += 0.5)
-    //         {
-    //             int[] p = [(int)(start[0] + k * segmentVector[0]), (int)(start[1] + k * segmentVector[1])];
-
-    //             //setting any points within the radius of p to be true
-    //             for (int x = p[0] - (int)radius; x < p[0] + (int)radius; x++)
-    //             {
-    //                 for (int y = p[1] - (int)radius; y < p[1] + (int)radius; y++)
-    //                 {
-    //                     //checking point validity
-    //                     if (output.GetLength(0) <= x || output.GetLength(1) <= y || x < 0 || y < 0)
-    //                     {
-    //                         continue;
-    //                     }
-
-    //                     if (output[y, x]) { continue; } //we don't need to check for distance if it's already true
-
-    //                     // if the point within the box of lenght 2*radius is within the  radius of the new point, we draw the point
-    //                     if (Math.Pow(x - p[0], 2) + Math.Pow(y - p[1], 2) < radius)
-    //                     {
-    //                         output[y, x] = true;
-    //                     }
-
-    //                 }
-    //             }
-
-    //         }
-
-
-    //         //enqueing the children of this node
-    //         List<Tree<VascularSegment>> children = currentNode.GetChildren();
-    //         if (children.Count > 0)
-    //         {
-    //             for (int i = 0; i < children.Count; i++)
-    //             {
-    //                 toVisit.Add(children[i]);
-    //             }
-    //         }
-    //     }
-
-    //     return output;
-    // }
 
     private bool[,] VisualizeTree(Tree<VascularSegment> tree)
     {
@@ -784,10 +704,10 @@ public class VascularGeneration
 
         // Constants for realistic microvascular scale
         double perfusionRadius = 100;                // in pixels (1 px = 1 cm → 1 m radius domain)
-        int numberTerminalSegments = 50;
-        double terminalPressure = 7999.342104;       // 60 mmHg in Pascals
-        double inletPressure = 13332.23684;           // 100 mmHg in Pascals
-        double inletFlow = 8.333e-9;                  // 500 μL/min in m³/s (approximate)
+        int numberTerminalSegments = 100;
+        double terminalPressure = 20;       // 60 mmHg in Pascals
+        double inletPressure = 400;           // 100 mmHg in Pascals
+        double inletFlow = 1000;                  // 500 μL/min in m³/s (approximate)
         double y = 3.0;                               // Murray's law exponent
 
         VascularGeneration testing = new VascularGeneration(

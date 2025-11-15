@@ -73,12 +73,12 @@ namespace VascularGenerator.DataStructures
 
         public double CalculateVolume()
         {
-            return segmentLength * Math.PI * Math.Pow(radius, 2);
+            return segmentLength*0.01 * Math.PI * Math.Pow(radius, 2);
         }
 
         public double GetRadius()
         {
-            return radius * 10000;
+            return radius * 10;
         }
 
         public bool ContainsPoint(double[] point)
