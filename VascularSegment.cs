@@ -1,16 +1,27 @@
 using System;
+using System.Collections.Generic;
+using Newtonsoft.Json;
+
 namespace VascularGenerator.DataStructures
 {
     public class VascularSegment : IsCopyable<VascularSegment>
     {
-        public double[] startPoint;
-        public double[] endPoint;
-        public double segmentLength;
+        public double[] startPoint { get; set; }
+        public double[] endPoint { get; set; }
+        public double segmentLength { get; set; }
+        public double radius { get; set; }
+        public double flow { get; set; }
+        public double pressureIn { get; set; }
+        public double pressureOut { get; set; }
+        
+        // public double[] startPoint;
+        // public double[] endPoint;
+        // public double segmentLength;
 
-        public double radius;
-        public double flow;
-        public double pressureIn;
-        public double pressureOut;
+        // public double radius;
+        // public double flow;
+        // public double pressureIn;
+        // public double pressureOut;
 
         private double dynamicViscosity = 0.0035;
 
@@ -78,7 +89,7 @@ namespace VascularGenerator.DataStructures
 
         public double GetRadius()
         {
-            return radius * 10;
+            return radius * 100;
         }
 
         public bool ContainsPoint(double[] point)
@@ -149,7 +160,18 @@ namespace VascularGenerator.DataStructures
         
         public override string ToString()
         {
-            return "Vascular Segment: \n\tstart:" + startPoint + "\n\tend:" + endPoint +"\n\tlength:" + segmentLength + "\n\tpressureIn:" + pressureIn + "\n\tpressureOut:" + pressureOut + "\n\tflow:" + flow + "\n\tradius:" + radius;
+            
+    // return $"{{" +
+    //     $"\"start\": [{startPoint[0]}, {startPoint[1]}]," +
+    //     $"\"end\": [{endPoint[0]}, {endPoint[1]}]," +
+    //     $"\"length\": {segmentLength}," +
+    //     $"\"pressureIn\": {pressureIn}," +
+    //     $"\"pressureOut\": {pressureOut}," +
+    //     $"\"flow\": {flow}," +
+    //     $"\"radius\": {radius}" +
+    //     $"}}";
+
+            return "\t\"start\": [" + startPoint[0]+","+startPoint[1] + "]\n\t\"end\": [" + endPoint[0]+","+endPoint[1] +"]\n\t\"length\":" + segmentLength + "\n\t\"pressureIn\":" + pressureIn + "\n\t\"pressureOut\":" + pressureOut + "\n\t\"flow\":" + flow + "\n\t\"radius\":" + radius;
         }
     }
 }

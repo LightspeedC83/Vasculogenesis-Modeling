@@ -11,7 +11,10 @@ using System.Security.Cryptography.X509Certificates;
 using System.Transactions;
 using MathNet.Numerics.RootFinding; // for solving the junction pressure when we bifurcate
 using VascularGenerator.DataStructures; //importing our custom tree datastructure
+using System.IO;
 
+using System.Collections.Generic;
+using Newtonsoft.Json;
 
 public class VascularGeneration
 {
@@ -50,7 +53,14 @@ public class VascularGeneration
         // terminalLocations = GenerateTerminalPoints(perfusionRadius, numberTerminalSegments); //terminal location is a list of random uniformly distributed points within the perfusion area
 
         Tree<VascularSegment> tree = GenerateVascularTree(inletLocation, terminalPressure, inletFlow, inletPressure);
-        Console.WriteLine(tree.ToString());
+        
+        //storing JSON
+        string json = JsonConvert.SerializeObject(tree, Formatting.Indented);
+        string path = "outputs/testJSON.txt";
+        File.WriteAllText(path, json);
+        //loading from JSON
+        string json = System.IO.File.ReadAllText("vascularTree.json");
+        Tree<VascularSegment> treeRoot = JsonConvert.DeserializeObject<Tree<VascularSegment>>(json);
     }
 
 
@@ -83,7 +93,7 @@ public class VascularGeneration
             // terminalFlow = inletFlow/numTerminalPointsCreated;
 
             //getting the best bifurcation point and the node associated with it
-            double[] bestBifurcationPoint = GetBifurcationPointByVolume(inletSegment, nextTerminalPoint);
+            double[] bestBifurcationPoint = GetBifurcationPointByDistance(inletSegment, nextTerminalPoint);
             Tree<VascularSegment> bestBifurcationPointNode = GetBifurcationNode(inletSegment, bestBifurcationPoint);
 
             //now that we have the best bifurcation point for the current terminal segment, we will insert a new segment into the tree and rescale everything accordingly
@@ -100,6 +110,7 @@ public class VascularGeneration
             //Now we bubble up, recalculating radii, pressure, and flow for all the segments above the bifurcation segment
             Tree<VascularSegment> upperNode = bestBifurcationPointNode;
             BubbleUpChanges(upperNode);
+            // EnforceGlobalPressureDrop(inletSegment);
 
         }
 
@@ -151,7 +162,8 @@ public class VascularGeneration
                 //Now we bubble up, recalculating radii, pressure, and flow for all the segments above the bifurcation segment
                 BubbleUpChanges(testBifurcationNode);
                 
-
+                // EnforceGlobalPressureDrop(rootCopy);
+                
 
                 //now we calculate the volume of the copied tree.
                 double volume = 0.0;
@@ -394,8 +406,88 @@ public class VascularGeneration
         return upperSegment;
     }
 
+    private void EnforceGlobalPressureDrop(Tree<VascularSegment> root) {
+        const double eta = 0.0035;
+        // Step A: compute ΔP_current with terminal pressure clamped
+        RecomputePressures(root, inletPressure, terminalPressure, eta, useInletAsBoundary: false);
+        double deltaPCurrent = root.GetValue().pressureIn - terminalPressure;
+        double deltaPTarget  = inletPressure - terminalPressure;
+        if (deltaPCurrent <= 0 || deltaPTarget <= 0) return; // guard
 
-    
+        // Step B: scale all radii so ΔP matches target (ΔP ∝ 1/r^4)
+        double s = Math.Pow(deltaPCurrent / deltaPTarget, 0.25);
+        ScaleRadii(root, s);
+
+        // Step C: recompute pressures with inlet clamped to inletPressure
+        RecomputePressures(root, inletPressure, terminalPressure, eta, useInletAsBoundary: true);
+    }
+    void ScaleRadii(Tree<VascularSegment> node, double s) {
+    var queue = new Queue<Tree<VascularSegment>>();
+    queue.Enqueue(node);
+    while (queue.Count > 0) {
+        var current = queue.Dequeue();
+        current.GetValue().radius *= s;
+        foreach (var child in current.GetChildren()) {
+            queue.Enqueue(child);
+        }
+    }
+}
+
+    public static void RecomputePressures(
+        Tree<VascularSegment> root,
+        double inletPressure,
+        double terminalPressure,
+        double eta,
+        bool useInletAsBoundary // true: fix inlet; false: fix terminal
+    ){
+        // 1) Precompute segment resistances
+        var R = new Dictionary<int, double>();
+        double Rseg(VascularSegment s) {
+            double Lm = s.segmentLength * 0.01; // convert px to meters
+            return 8.0 * eta * Lm / (Math.PI * Math.Pow(s.radius, 4));
+        }
+        void FillR(Tree<VascularSegment> n) {
+            var s = n.GetValue();
+            R[n.GetID()] = Rseg(s);
+            foreach (var c in n.GetChildren()) FillR(c);
+        }
+        FillR(root);
+
+        // 2) Post-order: compute equivalent downstream resistance
+        var Req = new Dictionary<int, double>();
+        double ComputeReq(Tree<VascularSegment> n) {
+            if (n.GetChildren().Count == 0) {
+                return Req[n.GetID()] = R[n.GetID()];
+            }
+            double reqA = ComputeReq(n.GetChildren()[0]);
+            double reqB = ComputeReq(n.GetChildren()[1]);
+            double reqChildren = 1.0 / (1.0 / reqA + 1.0 / reqB);
+            return Req[n.GetID()] = R[n.GetID()] + reqChildren;
+        }
+        double reqRoot = ComputeReq(root);
+
+        // 3) Set root boundary pressure
+        if (useInletAsBoundary) {
+            root.GetValue().pressureIn = inletPressure;
+        } else {
+            // enforce terminal pressure exactly
+            root.GetValue().pressureIn = terminalPressure + root.GetValue().flow * reqRoot;
+        }
+
+        // 4) Pre-order: propagate pressures down the tree
+        void Propagate(Tree<VascularSegment> n) {
+            var s = n.GetValue();
+            s.pressureOut = s.pressureIn - s.flow * R[n.GetID()];
+            foreach (var c in n.GetChildren()) {
+                c.GetValue().pressureIn = s.pressureOut; // junction pressure
+                Propagate(c);
+            }
+        }
+        Propagate(root);
+
+        // 5) Optional: diagnostics can be added here
+    }
+
     //returns one terminal point candidate, randomly from within the perfusion radius (uniform distribution)
     private double[] NewTerminalPoint(Tree<VascularSegment> workingTree)
     {
@@ -704,10 +796,10 @@ public class VascularGeneration
 
         // Constants for realistic microvascular scale
         double perfusionRadius = 100;                // in pixels (1 px = 1 cm → 1 m radius domain)
-        int numberTerminalSegments = 100;
-        double terminalPressure = 20;       // 60 mmHg in Pascals
+        int numberTerminalSegments = 10;
+        double terminalPressure = 40;       // 60 mmHg in Pascals
         double inletPressure = 400;           // 100 mmHg in Pascals
-        double inletFlow = 1000;                  // 500 μL/min in m³/s (approximate)
+        double inletFlow = 1;                  // 500 μL/min in m³/s (approximate)
         double y = 3.0;                               // Murray's law exponent
 
         VascularGeneration testing = new VascularGeneration(

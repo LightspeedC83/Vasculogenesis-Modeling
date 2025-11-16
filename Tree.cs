@@ -2,16 +2,33 @@ using System;
 using System.ComponentModel.DataAnnotations;
 using System.Dynamic;
 using System.Runtime.CompilerServices;
+using System.Collections.Generic;
+using Newtonsoft.Json;
+
 namespace VascularGenerator.DataStructures
 {
     public class Tree<T> where T : IsCopyable<T>
     {   
-        T value;
-        List<Tree<T>> children;
-        Tree<T> parent;
+        [JsonProperty]
+        public T value { get; set; }
+
+        [JsonProperty]
+        public List<Tree<T>> children { get; set; } = new List<Tree<T>>();
+
+        [JsonIgnore] // avoid circular reference/traversal during serialization
+        public Tree<T> parent { get; set; }
+
+        [JsonProperty]
+        public int ID { get; private set; }
 
         static int IDMaster = 0;
-        int ID;
+        
+        // T value;
+        // List<Tree<T>> children;
+        // Tree<T> parent;
+
+        // static int IDMaster = 0;
+        // int ID;
 
         public Tree(T value)
         {
@@ -20,6 +37,7 @@ namespace VascularGenerator.DataStructures
             parent = null;
             ID = IDMaster;
             IDMaster += 1;
+            
         }
 
         public void AddChild(Tree<T> child)
@@ -119,6 +137,32 @@ namespace VascularGenerator.DataStructures
                     output += "\n\tChild:\n" + c.ToString();
                 }
             }
+            return output;
+        }
+
+        public string ToJSON()
+        {
+            string output = "{\n\"ID\": "+this.ID+",\n\t\"value\": {\n"+ value.ToString()+"\n}";
+            if (children.Count == 0)
+            {
+                output += "\n\t\"children\":[]";
+            }
+            else
+            {
+                output += "\n\t\"children\":[\n";
+                int i =0;
+                foreach (Tree<T> c in children)
+                {
+                    i++;
+                    output += c.ToJSON();
+                    if (i < children.Count)
+                    {
+                     output+=",";   
+                    }
+                }
+                output += "\n]";
+            }
+            output+="\n}";
             return output;
         }
     }
