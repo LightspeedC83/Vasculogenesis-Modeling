@@ -6,13 +6,13 @@ namespace VascularGenerator.DataStructures
 {
     public class VascularSegment : IsCopyable<VascularSegment>
     {
-        public double[] startPoint { get; set; }
-        public double[] endPoint { get; set; }
-        public double segmentLength { get; set; }
-        public double radius { get; set; }
-        public double flow { get; set; }
-        public double pressureIn { get; set; }
-        public double pressureOut { get; set; }
+        [JsonProperty] public double[] startPoint { get; set; }
+        [JsonProperty] public double[] endPoint { get; set; }
+        [JsonIgnore] public double segmentLength { get; set; }
+        [JsonProperty] public double radius { get; set; }
+        [JsonProperty] public double flow { get; set; }
+        [JsonProperty] public double pressureIn { get; set; }
+        [JsonProperty] public double pressureOut { get; set; }
         
         // public double[] startPoint;
         // public double[] endPoint;
@@ -26,6 +26,7 @@ namespace VascularGenerator.DataStructures
         private double dynamicViscosity = 0.0035;
 
         //constructor that takes all the values and assigns them
+        [JsonConstructor]
         public VascularSegment(double[] startPoint, double[] endPoint, double q, double p1, double p2, double radius)
         {
             this.startPoint = startPoint;

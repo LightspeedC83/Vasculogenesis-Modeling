@@ -9,20 +9,16 @@ namespace VascularGenerator.DataStructures
 {
     public class Tree<T> where T : IsCopyable<T>
     {   
-        [JsonProperty]
-        public T value { get; set; }
+        [JsonProperty] public int ID { get; private set; }
+        
+        [JsonProperty] public T value { get; set; }
 
-        [JsonProperty]
-        public List<Tree<T>> children { get; set; } = new List<Tree<T>>();
+        [JsonProperty] public List<Tree<T>> children { get; set; } = new List<Tree<T>>();
 
-        [JsonIgnore] // avoid circular reference/traversal during serialization
-        public Tree<T> parent { get; set; }
-
-        [JsonProperty]
-        public int ID { get; private set; }
+        [JsonIgnore] public Tree<T> parent { get; set; }
 
         static int IDMaster = 0;
-        
+
         // T value;
         // List<Tree<T>> children;
         // Tree<T> parent;

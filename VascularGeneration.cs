@@ -57,9 +57,10 @@ public class VascularGeneration
         //storing JSON
         string json = JsonConvert.SerializeObject(tree, Formatting.Indented);
         string path = "outputs/testJSON.txt";
+        Console.WriteLine("testing");
         File.WriteAllText(path, json);
         //loading from JSON
-        string json = System.IO.File.ReadAllText("vascularTree.json");
+        json = System.IO.File.ReadAllText(path);
         Tree<VascularSegment> treeRoot = JsonConvert.DeserializeObject<Tree<VascularSegment>>(json);
     }
 
