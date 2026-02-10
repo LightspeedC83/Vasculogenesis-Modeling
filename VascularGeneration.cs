@@ -57,7 +57,6 @@ public class VascularGeneration
         //storing JSON
         string json = JsonConvert.SerializeObject(tree, Formatting.Indented);
         string path = "outputs/testJSON.txt";
-        Console.WriteLine("testing");
         File.WriteAllText(path, json);
         //loading from JSON
         json = System.IO.File.ReadAllText(path);
@@ -788,7 +787,9 @@ public class VascularGeneration
                 }
             }
         }
-        outputImage.Save("outputs/" + name + ".png", ImageFormat.Png);
+        string settings = "_perfusionRadius="+perfusionRadius+ "_numberTerminalSegments="+numberTerminalSegments+ "_terminalPressure="+terminalPressure+ "_inletPressure="+inletPressure+ "_inletFlow="+inletFlow;
+        outputImage.Save("outputs/" + name + settings +".png", ImageFormat.Png);
+        
     }
 
     static void Main()
@@ -797,7 +798,7 @@ public class VascularGeneration
 
         // Constants for realistic microvascular scale
         double perfusionRadius = 100;                // in pixels (1 px = 1 cm → 1 m radius domain)
-        int numberTerminalSegments = 10;
+        int numberTerminalSegments = 100;
         double terminalPressure = 40;       // 60 mmHg in Pascals
         double inletPressure = 400;           // 100 mmHg in Pascals
         double inletFlow = 1;                  // 500 μL/min in m³/s (approximate)

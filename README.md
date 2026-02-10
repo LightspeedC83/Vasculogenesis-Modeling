@@ -1,6 +1,12 @@
 # Vasculogenesis Modeling
 I'm using C# to procedurally generate realistic looking vascular structures! One highly useful application of this would be for surgery simulators that would teach surgeons how to operate in and around realistic vascular systems.
 
+# Visual Representation of Output Using Unity
+
+![Program Output Animation](reference_images/Vascular_Generation_Unity_Animation.gif)
+![Program Output Image Showcase with marked key regiions](reference_images/Vascular_Structure_Procedural_Generation.png)
+
+
 # Project Overview
 vasculogenesis is basically a problem of how to supply every "cell" on a plane (or in 3D space) with blood/oxygen. I will be roughly following this paper by W. Schreiner wherein he lays out a "Constrained Constructive Optimization" approach to the problem: [Computer generation of complex arterial tree models by W. Schreiner](https://doi.org/10.1016/0141-5425(93)90046-2)
 
